@@ -13,7 +13,7 @@ An AI-powered chatbot application to assist new employees at FPT Software during
 - **Smart Greeting**: Bot greets employees by name and checks for urgent tasks
 - **Deadline Reminders**: Proactively alerts about tasks due soon
 - **Rich Formatting**: Uses Markdown with emojis for clear, organized responses
-- **Contextual Suggestions**: Smart suggestion buttons based on user needs
+- **Contextual Suggestion Chips**: AI-generated follow-up suggestions after each response ⭐ NEW
 
 ### 2. FAQ Bot
 - Answers common onboarding questions instantly
@@ -186,13 +186,23 @@ Em có thể giúp gì cho anh hôm nay?
 
 ## 📊 Mock Data
 
-The system includes mock data for demonstration:
+The system includes comprehensive mock data:
 
 - **6 FAQ entries**: Common onboarding questions
 - **3 employees**: E123 (Nguyễn Văn An), E456 (Đặng Phú Quý), E789 (Hoàng Thị Giang)
-- **Onboarding tasks**: 3-5 tasks per employee with due dates and status
+  - Each with full contact info (email, phone, Teams link)
+  - Manager and Buddy contacts included
+  - Team assignments
+- **3 teams**: Cloud Warriors, Monorepo Avengers, Agile Ninjas
+  - Meeting schedules with Teams links
+  - Team leads and member counts
+- **12+ onboarding tasks**: Across all employees with priorities and due dates
+- **Knowledge Base**: 
+  - 5 IT support topics (WiFi, VPN, email, hardware)
+  - 4 HR systems (Leave, Timesheet, Payroll, Learning)
+  - 2 office locations (F-town 2 & 3)
 
-Default test employee: **E123 (Nguyễn Văn An)**
+Default test employee: **E123 (Nguyễn Văn An)** from Cloud Warriors team
 
 ## 🎨 UI Features
 
@@ -229,6 +239,25 @@ Main chat endpoint for conversation.
 }
 ```
 
+### POST /api/greeting
+Generate personalized greeting with deadline alerts.
+
+**Request:**
+```json
+{
+  "employee_id": "E123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "greeting": "👋 Chào An! Em là Trợ lý Onboarding...",
+  "urgent_tasks_count": 2
+}
+```
+
 ### GET /api/health
 Health check endpoint.
 
@@ -237,7 +266,7 @@ Health check endpoint.
 ### Backend
 - **Python 3.9+**
 - **Flask** - Web framework
-- **Azure OpenAI SDK** - LLM integration
+- **Azure OpenAI SDK** - LLM integration (8 functions)
 - **Flask-CORS** - Cross-origin support
 - **python-dotenv** - Environment management
 
@@ -245,15 +274,28 @@ Health check endpoint.
 - **React 18** - UI framework
 - **Vite** - Build tool
 - **Modern CSS** - Styling with gradients and animations
+- **Markdown rendering** - Rich text formatting
+
+### Data
+- **Mock databases**: Employees, teams, tasks, knowledge base
+- **In-memory storage**: Dynamic task updates
 
 ## 📝 Workshop Objectives
 
 This project demonstrates:
-1. ✅ **Prompt Engineering** - System prompts with few-shot examples
-2. ✅ **Function Calling** - Dynamic data retrieval from mock database
-3. ✅ **Multi-turn Conversations** - Context management across turns
+1. ✅ **Prompt Engineering** - System prompts with few-shot examples + embedded knowledge
+2. ✅ **Function Calling** - 8 functions for dynamic data retrieval
+3. ✅ **Multi-turn Conversations** - Context management with confirmation workflows
 4. ✅ **Message Management** - Proper handling of conversation history
-5. ✅ **Modern UI** - Beautiful and responsive chat interface
+5. ✅ **Modern UI** - Proactive, beautiful and responsive chat interface
+6. ✅ **Real-world Use Cases** - Interactive task management, team integration, IT/HR support
+
+## 📚 Additional Documentation
+
+- **IMPROVEMENTS.md** - Phase 1 UX/Utility enhancements changelog
+- **USE_CASES.md** - Phase 2 comprehensive use case implementations
+- **CONTEXTUAL_SUGGESTIONS.md** - Phase 3 contextual suggestion chips ⭐ NEW
+- **memory-bank/** - Complete project documentation and context
 
 ## 🤝 Contributing
 

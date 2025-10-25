@@ -121,7 +121,7 @@ body {
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-top: 25px;
-  max-width: 700px;
+  max-width: 900px;
 }
 
 .suggestion-btn {
@@ -220,6 +220,45 @@ body {
 .message.user .message-text {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+}
+
+/* Contextual Suggestion Chips */
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.suggestion-chip {
+  background: #f0f2ff;
+  border: 1.5px solid #667eea;
+  color: #667eea;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-chip:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.suggestion-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.suggestion-chip:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 /* Typing Indicator */

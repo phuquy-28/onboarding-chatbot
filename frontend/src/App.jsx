@@ -98,20 +98,27 @@ function App() {
       const data = await response.json()
 
       if (data.success) {
-        // Add assistant response to messages
-        setMessages([...updatedMessages, data.response])
+        // Add assistant response to messages (with suggested_prompts if available)
+        const assistantMessage = {
+          role: 'assistant',
+          content: data.response.content,
+          suggested_prompts: data.response.suggested_prompts || []
+        }
+        setMessages([...updatedMessages, assistantMessage])
       } else {
         // Show error message
         setMessages([...updatedMessages, {
           role: 'assistant',
-          content: `Xin lỗi, đã có lỗi xảy ra: ${data.error}`
+          content: `Xin lỗi, đã có lỗi xảy ra: ${data.error}`,
+          suggested_prompts: []
         }])
       }
     } catch (error) {
       console.error('Error sending message:', error)
       setMessages([...updatedMessages, {
         role: 'assistant',
-        content: 'Xin lỗi, không thể kết nối với server. Vui lòng kiểm tra lại backend.'
+        content: 'Xin lỗi, không thể kết nối với server. Vui lòng kiểm tra lại backend.',
+        suggested_prompts: []
       }])
     } finally {
       setIsLoading(false)
@@ -196,6 +203,42 @@ function App() {
                   >
                     ⏰ Kiểm tra deadline
                   </button>
+                  <button 
+                    className="suggestion-btn"
+                    onClick={() => setInputValue('Team của tôi có lịch họp gì?')}
+                  >
+                    📅 Lịch họp team
+                  </button>
+                  <button 
+                    className="suggestion-btn"
+                    onClick={() => setInputValue('Không vào được wifi F-town 3')}
+                  >
+                    📶 Hỗ trợ IT
+                  </button>
+                  <button 
+                    className="suggestion-btn"
+                    onClick={() => setInputValue('Tôi còn bao nhiêu ngày phép?')}
+                  >
+                    🏖️ Số dư phép
+                  </button>
+                  <button 
+                    className="suggestion-btn"
+                    onClick={() => setInputValue('Có khóa học nào về React không?')}
+                  >
+                    📚 Tìm khóa học
+                  </button>
+                  <button 
+                    className="suggestion-btn"
+                    onClick={() => setInputValue('Khi nào tôi nhận lương?')}
+                  >
+                    💰 Chính sách lương
+                  </button>
+                  <button 
+                    className="suggestion-btn"
+                    onClick={() => setInputValue('Quy trình đánh giá hiệu suất?')}
+                  >
+                    📊 Performance Review
+                  </button>
                 </div>
               </div>
             </div>
@@ -214,6 +257,21 @@ function App() {
                       className="message-text"
                       dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
                     />
+                    {/* Contextual suggestion chips - only for assistant messages */}
+                    {message.role === 'assistant' && message.suggested_prompts && message.suggested_prompts.length > 0 && (
+                      <div className="suggestion-chips">
+                        {message.suggested_prompts.map((prompt, promptIndex) => (
+                          <button
+                            key={promptIndex}
+                            className="suggestion-chip"
+                            onClick={() => setInputValue(prompt)}
+                            disabled={isLoading}
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

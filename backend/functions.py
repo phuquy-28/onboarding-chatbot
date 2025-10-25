@@ -6,10 +6,14 @@ These functions are called when the LLM decides to retrieve dynamic data
 import json
 from mock_data import (
     mock_new_hires_db, 
-    mock_onboarding_tasks, 
+    mock_onboarding_tasks,
+    mock_team_db,
     get_employee_by_name,
     get_urgent_tasks,
-    update_task_status_in_db
+    update_task_status_in_db,
+    find_task_by_name,
+    get_leave_balance_from_db,
+    search_training_courses_in_db
 )
 
 
@@ -184,6 +188,204 @@ def check_urgent_tasks(employee_identifier):
     }
 
 
+def get_team_meetings(employee_identifier):
+    """
+    Get team meeting schedule for an employee's team
+    
+    Args:
+        employee_identifier: Employee ID or name
+    
+    Returns:
+        dict: Team information and meeting schedules
+    """
+    # Get employee info
+    if employee_identifier in mock_new_hires_db:
+        employee = mock_new_hires_db[employee_identifier]
+    else:
+        employee = get_employee_by_name(employee_identifier)
+        if not employee:
+            return {
+                "success": False,
+                "error": f"Không tìm thấy nhân viên: {employee_identifier}"
+            }
+    
+    team_name = employee.get("team_name")
+    if not team_name:
+        return {
+            "success": False,
+            "error": "Nhân viên chưa được gán vào team nào"
+        }
+    
+    # Get team info
+    if team_name not in mock_team_db:
+        return {
+            "success": False,
+            "error": f"Không tìm thấy thông tin team: {team_name}"
+        }
+    
+    team_info = mock_team_db[team_name]
+    
+    return {
+        "success": True,
+        "team_name": team_name,
+        "team_lead": team_info["lead"],
+        "team_lead_email": team_info["lead_email"],
+        "members_count": team_info["members_count"],
+        "meetings": team_info["meetings"],
+        "employee_name": employee["name"]
+    }
+
+
+def get_next_task(employee_identifier):
+    """
+    Get the next pending task for an employee
+    Useful for suggesting what to do next after completing a task
+    
+    Args:
+        employee_identifier: Employee ID or name
+    
+    Returns:
+        dict: Next pending task or None
+    """
+    # Get employee ID
+    employee_id = employee_identifier
+    if employee_identifier not in mock_new_hires_db:
+        employee = get_employee_by_name(employee_identifier)
+        if employee:
+            employee_id = employee["employee_id"]
+        else:
+            return {
+                "success": False,
+                "error": f"Không tìm thấy nhân viên: {employee_identifier}"
+            }
+    
+    # Get tasks
+    if employee_id not in mock_onboarding_tasks:
+        return {
+            "success": False,
+            "error": f"Không tìm thấy nhiệm vụ cho nhân viên {employee_id}"
+        }
+    
+    # Find first pending task (sorted by priority)
+    tasks = mock_onboarding_tasks[employee_id]
+    pending_tasks = [t for t in tasks if t["status"] == "Pending"]
+    
+    if not pending_tasks:
+        return {
+            "success": True,
+            "next_task": None,
+            "message": "Chúc mừng! Anh/chị đã hoàn thành tất cả nhiệm vụ onboarding."
+        }
+    
+    # Sort by priority (High > Medium > Low) and due date
+    priority_order = {"High": 0, "Medium": 1, "Low": 2}
+    next_task = sorted(
+        pending_tasks,
+        key=lambda t: (priority_order.get(t["priority"], 3), t["due_date"])
+    )[0]
+    
+    return {
+        "success": True,
+        "next_task": next_task,
+        "remaining_count": len(pending_tasks)
+    }
+
+
+def get_leave_balance(employee_identifier):
+    """
+    Get leave balance for an employee
+    Shows annual leave, sick leave, and other leave types
+    
+    Args:
+        employee_identifier: Employee ID or name
+    
+    Returns:
+        dict: Leave balance information
+    """
+    # Get employee ID
+    employee_id = employee_identifier
+    if employee_identifier not in mock_new_hires_db:
+        employee = get_employee_by_name(employee_identifier)
+        if employee:
+            employee_id = employee["employee_id"]
+        else:
+            return {
+                "success": False,
+                "error": f"Không tìm thấy nhân viên: {employee_identifier}"
+            }
+    
+    # Get leave balance
+    leave_data = get_leave_balance_from_db(employee_id)
+    
+    if not leave_data:
+        return {
+            "success": False,
+            "error": f"Không tìm thấy thông tin phép cho nhân viên {employee_id}"
+        }
+    
+    return {
+        "success": True,
+        "employee_id": employee_id,
+        "leave_balance": leave_data
+    }
+
+
+def search_training_courses(keyword=None, course_type=None):
+    """
+    Search for training courses by keyword or type
+    
+    Args:
+        keyword: Search keyword (searches in name and category)
+        course_type: Filter by type ("Technical" or "Soft Skill")
+    
+    Returns:
+        dict: List of matching courses
+    """
+    courses = search_training_courses_in_db(keyword, course_type)
+    
+    if not courses:
+        return {
+            "success": True,
+            "courses": [],
+            "count": 0,
+            "message": f"Không tìm thấy khóa học nào với từ khóa '{keyword}'" if keyword else "Không tìm thấy khóa học nào"
+        }
+    
+    return {
+        "success": True,
+        "courses": courses,
+        "count": len(courses),
+        "search_keyword": keyword,
+        "course_type": course_type
+    }
+
+
+# Format tool - Forces LLM to return structured response with suggestions
+# This is a "virtual" tool that doesn't call any Python function
+FORMAT_RESPONSE_TOOL = {
+    "name": "format_user_response",
+    "description": "LUÔN LUÔN sử dụng công cụ này để định dạng MỌI câu trả lời cuối cùng cho người dùng. Đây là bước BẮT BUỘC cuối cùng trong mọi hội thoại.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "main_answer": {
+                "type": "string",
+                "description": "Câu trả lời chính, thân thiện và hữu ích cho câu hỏi của người dùng. Sử dụng Markdown và emoji để format đẹp."
+            },
+            "suggested_prompts": {
+                "type": "array",
+                "description": "Danh sách 3 câu hỏi/hành động gợi ý tiếp theo CÓ LIÊN QUAN đến ngữ cảnh hiện tại. Phải ngắn gọn (< 50 ký tự) và hữu ích.",
+                "items": {
+                    "type": "string"
+                },
+                "minItems": 3,
+                "maxItems": 3
+            }
+        },
+        "required": ["main_answer", "suggested_prompts"]
+    }
+}
+
 # Function schemas for Azure OpenAI
 # These tell the LLM what functions are available and how to call them
 FUNCTION_DEFINITIONS = [
@@ -271,8 +473,72 @@ FUNCTION_DEFINITIONS = [
             },
             "required": ["employee_identifier"]
         }
+    },
+    {
+        "name": "get_team_meetings",
+        "description": "Lấy thông tin về team và lịch họp cố định của team. Sử dụng khi người dùng hỏi về team, lịch họp, hoặc muốn biết ai trong team.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "employee_identifier": {
+                    "type": "string",
+                    "description": "Mã nhân viên hoặc tên nhân viên. Nếu người dùng nói 'tôi' hoặc 'team của tôi', hãy sử dụng 'E123'."
+                }
+            },
+            "required": ["employee_identifier"]
+        }
+    },
+    {
+        "name": "get_next_task",
+        "description": "Lấy nhiệm vụ tiếp theo cần làm (pending task có priority cao nhất). Sử dụng sau khi người dùng hoàn thành một nhiệm vụ để gợi ý việc tiếp theo.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "employee_identifier": {
+                    "type": "string",
+                    "description": "Mã nhân viên hoặc tên nhân viên. Nếu người dùng nói 'tôi', hãy sử dụng 'E123'."
+                }
+            },
+            "required": ["employee_identifier"]
+        }
+    },
+    {
+        "name": "get_leave_balance",
+        "description": "Lấy thông tin số dư ngày phép của nhân viên, bao gồm phép năm, phép ốm, và các loại phép khác. Sử dụng khi người dùng hỏi 'Tôi còn bao nhiêu ngày phép?', 'Số dư phép của tôi?'",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "employee_identifier": {
+                    "type": "string",
+                    "description": "Mã nhân viên hoặc tên nhân viên. Nếu người dùng nói 'tôi', hãy sử dụng 'E123'."
+                }
+            },
+            "required": ["employee_identifier"]
+        }
+    },
+    {
+        "name": "search_training_courses",
+        "description": "Tìm kiếm khóa học đào tạo theo từ khóa hoặc loại khóa học. Sử dụng khi người dùng hỏi về khóa học (React, AI, Soft Skill...) hoặc muốn tìm cơ hội đào tạo.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "keyword": {
+                    "type": "string",
+                    "description": "Từ khóa tìm kiếm (ví dụ: 'React', 'AI', 'Communication'). Tìm trong tên và category của khóa học."
+                },
+                "course_type": {
+                    "type": "string",
+                    "enum": ["Technical", "Soft Skill"],
+                    "description": "Loại khóa học: 'Technical' (kỹ thuật) hoặc 'Soft Skill' (kỹ năng mềm). Có thể bỏ qua nếu không cần filter."
+                }
+            },
+            "required": []
+        }
     }
 ]
+
+# All tools including format tool
+ALL_TOOLS = [FORMAT_RESPONSE_TOOL] + FUNCTION_DEFINITIONS
 
 
 def execute_function(function_name, arguments):
@@ -316,6 +582,17 @@ def execute_function(function_name, arguments):
         )
     elif function_name == "check_urgent_tasks":
         return check_urgent_tasks(arguments.get("employee_identifier"))
+    elif function_name == "get_team_meetings":
+        return get_team_meetings(arguments.get("employee_identifier"))
+    elif function_name == "get_next_task":
+        return get_next_task(arguments.get("employee_identifier"))
+    elif function_name == "get_leave_balance":
+        return get_leave_balance(arguments.get("employee_identifier"))
+    elif function_name == "search_training_courses":
+        return search_training_courses(
+            arguments.get("keyword"),
+            arguments.get("course_type")
+        )
     else:
         return {
             "success": False,

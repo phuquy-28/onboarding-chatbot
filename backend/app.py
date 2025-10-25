@@ -10,8 +10,8 @@ from flask_cors import CORS
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 
-from mock_data import onboarding_faqs
-from functions import FUNCTION_DEFINITIONS, execute_function
+from mock_data import onboarding_faqs, mock_knowledge_base, mock_hr_policy
+from functions import FUNCTION_DEFINITIONS, ALL_TOOLS, FORMAT_RESPONSE_TOOL, execute_function
 
 # Load environment variables
 load_dotenv()
@@ -87,7 +87,97 @@ def create_system_prompt():
 📞 Phone: +84 93 456 7890
 💬 [Chat trên Teams](https://teams.microsoft.com/l/chat/cuong.tran)
 
-Hãy áp dụng phong cách trên cho mọi phản hồi.
+## Quy tắc Xác nhận (Confirmation)
+
+**QUAN TRỌNG**: Trước khi gọi function `update_task_status`, PHẢI hỏi xác nhận:
+1. Nhận diện task user muốn update
+2. Hỏi xác nhận: "Em thấy có nhiệm vụ [tên task]. Anh xác nhận đã hoàn thành đúng không?"
+3. CHỈ gọi function sau khi user xác nhận (ví dụ: "đúng", "yes", "ok")
+4. Sau khi update, gọi `get_next_task` để gợi ý việc tiếp theo
+
+**Ví dụ workflow:**
+User: "Tôi hoàn thành khóa học Security rồi"
+Bot: "Tuyệt vời! Em thấy nhiệm vụ **[T01] Hoàn thành khóa học Security Awareness**. Anh xác nhận đã hoàn thành nhiệm vụ này đúng không?"
+User: "Đúng rồi"
+Bot: [Gọi update_task_status] → [Gọi get_next_task] → Phản hồi với nhiệm vụ tiếp theo
+
+## Knowledge Base - IT Support
+
+"""
+    
+    # Add IT support knowledge
+    for item in mock_knowledge_base["it_support"]:
+        if "topic" in item:
+            base_prompt += f"\n**{item['topic']}:**\n"
+            for key, value in item.items():
+                if key != "topic":
+                    base_prompt += f"- {key.capitalize()}: {value}\n"
+    
+    base_prompt += "\n## Knowledge Base - HR Systems\n"
+    
+    # Add HR systems knowledge
+    for item in mock_knowledge_base["hr_systems"]:
+        base_prompt += f"\n**{item['name']}** ({item['system']}):\n"
+        base_prompt += f"- Link: {item['link']}\n"
+        base_prompt += f"- Mô tả: {item['description']}\n"
+        if "approval" in item:
+            base_prompt += f"- Phê duyệt: {item['approval']}\n"
+        if "deadline" in item:
+            base_prompt += f"- Deadline: {item['deadline']}\n"
+        if "availability" in item:
+            base_prompt += f"- Thời gian: {item['availability']}\n"
+    
+    base_prompt += "\n## Office Information\n"
+    
+    # Add office info
+    for office in mock_knowledge_base["office_info"]:
+        base_prompt += f"\n**{office['location']}:**\n"
+        base_prompt += f"- Địa chỉ: {office['address']}\n"
+        base_prompt += f"- Giờ làm việc: {office['working_hours']}\n"
+        base_prompt += f"- Parking: {office['parking']}\n"
+        base_prompt += f"- Canteen: {office['canteen']}\n"
+    
+    # ========== HR POLICY KNOWLEDGE BASE (Extended) ==========
+    base_prompt += "\n\n## HR Policy - Lương & Phúc lợi (Compensation & Benefits)\n"
+    for key, value in mock_hr_policy["compensation"].items():
+        base_prompt += f"- **{key}**: {value}\n"
+    
+    base_prompt += "\n**Phúc lợi (Benefits):**\n"
+    for key, value in mock_hr_policy["benefits"].items():
+        base_prompt += f"- **{key}**: {value}\n"
+    
+    base_prompt += "\n## HR Policy - Nghỉ phép & Chấm công (Leave & Time-Off)\n"
+    for key, value in mock_hr_policy["leave_policy"].items():
+        base_prompt += f"- **{key}**: {value}\n"
+    
+    base_prompt += "\n## HR Policy - Đào tạo & Phát triển (Training & Career)\n"
+    for key, value in mock_hr_policy["career"].items():
+        base_prompt += f"- **{key}**: {value}\n"
+    
+    base_prompt += "\n## HR Policy - Hệ thống Nội bộ (Internal Systems)\n"
+    for system, desc in mock_hr_policy["internal_systems"].items():
+        base_prompt += f"- **{system}**: {desc}\n"
+    
+    base_prompt += "\n## HR Policy - Chính sách Chi phí (Expense Policy)\n"
+    for key, value in mock_hr_policy["expense_policy"].items():
+        base_prompt += f"- **{key}**: {value}\n"
+    
+    base_prompt += """
+
+## Quy tắc Format Phản hồi (QUAN TRỌNG)
+
+**BẮT BUỘC**: Sau khi hoàn thành tất cả các function calls cần thiết, PHẢI sử dụng tool `format_user_response` để:
+1. Tạo câu trả lời chính (main_answer) với format đẹp
+2. Đề xuất 3 câu hỏi/hành động tiếp theo CÓ LIÊN QUAN đến ngữ cảnh
+
+**Ví dụ suggestions tốt:**
+- Nếu vừa trả lời về tasks → Gợi ý: "Đánh dấu task hoàn thành", "Task nào sắp hết hạn?"
+- Nếu vừa trả lời về team → Gợi ý: "Khi nào có meeting?", "Ai là team lead?"
+- Nếu vừa trả lời về IT → Gợi ý: "Hướng dẫn cài VPN", "Liên hệ IT support"
+
+Suggestions phải NGẮN GỌN (< 50 ký tự) và HÀNH ĐỘNG được.
+
+Hãy áp dụng phong cách trên cho mọi phản hồi. Luôn nhớ XÁC NHẬN trước khi update task.
 """
     
     return base_prompt
@@ -114,11 +204,11 @@ def chat():
             }
             messages.insert(0, system_message)
         
-        # Call Azure OpenAI with function definitions
+        # Step 1: Call Azure OpenAI with ALL tools (including format tool)
         response = client.chat.completions.create(
             model=DEPLOYMENT_NAME,
             messages=messages,
-            functions=FUNCTION_DEFINITIONS,
+            functions=ALL_TOOLS,
             function_call="auto",
             temperature=0.7,
             max_tokens=800
@@ -131,6 +221,32 @@ def chat():
             function_name = response_message.function_call.name
             function_args = response_message.function_call.arguments
             
+            # Case 1: Format tool - this is the final response
+            if function_name == "format_user_response":
+                try:
+                    format_data = json.loads(function_args)
+                    return jsonify({
+                        "success": True,
+                        "messages": messages,
+                        "response": {
+                            "role": "assistant",
+                            "content": format_data.get("main_answer", ""),
+                            "suggested_prompts": format_data.get("suggested_prompts", [])
+                        }
+                    })
+                except json.JSONDecodeError:
+                    # Fallback if format parsing fails
+                    return jsonify({
+                        "success": True,
+                        "messages": messages,
+                        "response": {
+                            "role": "assistant",
+                            "content": response_message.content or "Xin lỗi, có lỗi xảy ra.",
+                            "suggested_prompts": []
+                        }
+                    })
+            
+            # Case 2: Real function call (get_employee_info, update_task, etc.)
             # Execute the function
             function_result = execute_function(function_name, function_args)
             
@@ -151,32 +267,53 @@ def chat():
                 "content": json.dumps(function_result, ensure_ascii=False)
             })
             
-            # Call LLM again to generate natural language response
+            # Step 2: Call LLM again and FORCE it to use format tool
             second_response = client.chat.completions.create(
                 model=DEPLOYMENT_NAME,
                 messages=messages,
+                functions=ALL_TOOLS,
+                function_call={"name": "format_user_response"},  # Force format tool
                 temperature=0.7,
                 max_tokens=800
             )
             
             final_message = second_response.choices[0].message
             
+            # Parse format tool response
+            if final_message.function_call and final_message.function_call.name == "format_user_response":
+                try:
+                    format_data = json.loads(final_message.function_call.arguments)
+                    return jsonify({
+                        "success": True,
+                        "messages": messages,
+                        "response": {
+                            "role": "assistant",
+                            "content": format_data.get("main_answer", ""),
+                            "suggested_prompts": format_data.get("suggested_prompts", [])
+                        }
+                    })
+                except json.JSONDecodeError:
+                    pass
+            
+            # Fallback
             return jsonify({
                 "success": True,
                 "messages": messages,
                 "response": {
                     "role": "assistant",
-                    "content": final_message.content
+                    "content": final_message.content or "Đã xử lý xong.",
+                    "suggested_prompts": []
                 }
             })
         
-        # No function call - return direct response
+        # No function call - should not happen with format tool, but handle it
         return jsonify({
             "success": True,
             "messages": messages,
             "response": {
                 "role": "assistant",
-                "content": response_message.content
+                "content": response_message.content or "Xin chào!",
+                "suggested_prompts": []
             }
         })
         
