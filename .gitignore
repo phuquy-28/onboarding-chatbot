@@ -41,6 +41,10 @@ dist-ssr/
 .env.local
 .env.*.local
 
+# Allow .env.production and .env.example (they don't contain secrets)
+!.env.production
+!.env.example
+
 # IDE
 .vscode/
 .idea/

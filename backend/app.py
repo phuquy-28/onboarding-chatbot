@@ -412,5 +412,9 @@ if __name__ == '__main__':
     else:
         print("✅ All environment variables loaded")
     
-    print("\n🚀 Starting Flask server on http://localhost:5000")
-    app.run(debug=True, port=5000)
+    # Get port from environment variable (for deployment) or default to 5000
+    port = int(os.getenv('PORT', 5000))
+    host = os.getenv('HOST', '0.0.0.0')
+    
+    print(f"\n🚀 Starting Flask server on {host}:{port}")
+    app.run(debug=False, host=host, port=port)
