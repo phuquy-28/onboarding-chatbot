@@ -1,9 +1,12 @@
 """
 Mock data for Employee Onboarding Chatbot
-Contains FAQs, employee information, and onboarding tasks
+Contains FAQs, employee information, onboarding tasks, and HR policies
 """
 
-# Mock data for FAQ (Used for System Prompt / Few-Shot)
+# ============================================================================
+# SECTION 1: FAQ DATA
+# ============================================================================
+
 onboarding_faqs = [
     {
         "q": "Khi nào tôi nhận lương?",
@@ -31,7 +34,11 @@ onboarding_faqs = [
     }
 ]
 
-# Mock data for new hire employees (Used for Function Calling)
+
+# ============================================================================
+# SECTION 2: EMPLOYEE DATA
+# ============================================================================
+
 mock_new_hires_db = {
     "E123": {
         "employee_id": "E123",
@@ -89,7 +96,11 @@ mock_new_hires_db = {
     }
 }
 
-# Mock data for onboarding tasks (Used for Function Calling)
+
+# ============================================================================
+# SECTION 3: ONBOARDING TASKS DATA
+# ============================================================================
+
 mock_onboarding_tasks = {
     "E123": [
         {
@@ -196,50 +207,10 @@ mock_onboarding_tasks = {
 }
 
 
-def get_all_employee_ids():
-    """Get list of all employee IDs in the system"""
-    return list(mock_new_hires_db.keys())
+# ============================================================================
+# SECTION 4: TEAM DATA
+# ============================================================================
 
-
-def get_employee_by_name(name):
-    """Find employee by name (case-insensitive partial match)"""
-    name_lower = name.lower()
-    for emp_id, emp_data in mock_new_hires_db.items():
-        if name_lower in emp_data["name"].lower():
-            return emp_data
-    return None
-
-
-def get_urgent_tasks(employee_id, days_threshold=2):
-    """
-    Get tasks that are due soon (within threshold days)
-    Used for proactive reminders
-    """
-    from datetime import datetime, timedelta
-    
-    if employee_id not in mock_onboarding_tasks:
-        return []
-    
-    today = datetime.now()
-    threshold_date = today + timedelta(days=days_threshold)
-    
-    urgent_tasks = []
-    for task in mock_onboarding_tasks[employee_id]:
-        if task["status"] == "Pending":
-            try:
-                due_date = datetime.strptime(task["due_date"], "%Y-%m-%d")
-                if today <= due_date <= threshold_date:
-                    days_left = (due_date - today).days
-                    task_with_urgency = task.copy()
-                    task_with_urgency["days_left"] = days_left
-                    urgent_tasks.append(task_with_urgency)
-            except ValueError:
-                continue
-    
-    return urgent_tasks
-
-
-# Mock data for teams (Used for team meetings and collaboration)
 mock_team_db = {
     "Cloud Warriors": {
         "team_name": "Cloud Warriors",
@@ -330,7 +301,11 @@ mock_team_db = {
     }
 }
 
-# Mock knowledge base for IT/HR support (Used in System Prompt)
+
+# ============================================================================
+# SECTION 5: IT/HR KNOWLEDGE BASE
+# ============================================================================
+
 mock_knowledge_base = {
     "it_support": [
         {
@@ -414,11 +389,11 @@ mock_knowledge_base = {
     ]
 }
 
+
 # ============================================================================
-# HR POLICY & KNOWLEDGE BASE (Extended)
+# SECTION 6: HR POLICY DATA (Extended)
 # ============================================================================
 
-# Mock HR Policy Database - Used for System Prompt
 mock_hr_policy = {
     "compensation": {
         "pay_date": "Lương được trả vào ngày 28 hàng tháng. Nếu ngày 28 là cuối tuần, bạn sẽ nhận vào thứ 6 trước đó.",
@@ -466,7 +441,11 @@ mock_hr_policy = {
     }
 }
 
-# Mock Leave Balance Database - Used for Function Calling
+
+# ============================================================================
+# SECTION 7: LEAVE BALANCE DATA
+# ============================================================================
+
 mock_leave_db = {
     "E123": {
         "employee_id": "E123",
@@ -503,7 +482,11 @@ mock_leave_db = {
     }
 }
 
-# Mock Training Courses Database - Used for Function Calling
+
+# ============================================================================
+# SECTION 8: TRAINING COURSES DATA
+# ============================================================================
+
 mock_training_db = [
     {
         "id": "C001",
@@ -588,6 +571,53 @@ mock_training_db = [
 ]
 
 
+# ============================================================================
+# SECTION 9: HELPER FUNCTIONS
+# ============================================================================
+
+def get_all_employee_ids():
+    """Get list of all employee IDs in the system"""
+    return list(mock_new_hires_db.keys())
+
+
+def get_employee_by_name(name):
+    """Find employee by name (case-insensitive partial match)"""
+    name_lower = name.lower()
+    for emp_id, emp_data in mock_new_hires_db.items():
+        if name_lower in emp_data["name"].lower():
+            return emp_data
+    return None
+
+
+def get_urgent_tasks(employee_id, days_threshold=2):
+    """
+    Get tasks that are due soon (within threshold days)
+    Used for proactive reminders
+    """
+    from datetime import datetime, timedelta
+    
+    if employee_id not in mock_onboarding_tasks:
+        return []
+    
+    today = datetime.now()
+    threshold_date = today + timedelta(days=days_threshold)
+    
+    urgent_tasks = []
+    for task in mock_onboarding_tasks[employee_id]:
+        if task["status"] == "Pending":
+            try:
+                due_date = datetime.strptime(task["due_date"], "%Y-%m-%d")
+                if today <= due_date <= threshold_date:
+                    days_left = (due_date - today).days
+                    task_with_urgency = task.copy()
+                    task_with_urgency["days_left"] = days_left
+                    urgent_tasks.append(task_with_urgency)
+            except ValueError:
+                continue
+    
+    return urgent_tasks
+
+
 def update_task_status_in_db(task_id, new_status):
     """
     Update task status in mock database
@@ -666,4 +696,3 @@ def search_training_courses_in_db(keyword=None, course_type=None):
             results.append(course)
     
     return results
-
